@@ -79,7 +79,34 @@ $('org').oninput = e => { S.organizer = e.target.value; update(false); };
 $('tpl').oninput = e => { S.template = e.target.value; update(false); };
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $('tpl'), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); S.template = t.value; update(false); t.focus(); });
 $('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
-$('newBtn').onclick = () => { if (!confirm('Start a new group?')) return; endDemo(); gid = ''; history.replaceState(null, '', location.pathname); S = { organizer: '', people: [], ex: {}, template: DEF_TPL }; $('send').innerHTML = ''; render(); };
+// ===== START SCREEN =====
+function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
+async function showStart() {
+  endDemo(); clearTimeout(saveT);
+  gid = ''; history.replaceState(null, '', location.pathname);
+  S = { organizer: '', people: [], ex: {}, template: DEF_TPL }; $('send').innerHTML = ''; $('save').textContent = '';
+  showApp(false); $('newOrg').value = '';
+  const list = $('orgList'); list.innerHTML = '<div class="note">⏳</div>';
+  let all = {};
+  if (FIREBASE_DB_URL) try { all = (await (await fetch(`${FIREBASE_DB_URL}/secretSanta.json`)).json()) || {}; } catch {}
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('ss_') && !all[k.slice(3)]) try { all[k.slice(3)] = JSON.parse(localStorage.getItem(k)); } catch {} }
+  const groups = Object.entries(all).filter(([id, d]) => id !== '_probe' && d && (d.organizer || '').trim()).sort((x, y) => (y[1].updated || 0) - (x[1].updated || 0));
+  list.innerHTML = '';
+  groups.forEach(([id, d]) => {
+    const b = document.createElement('button'); b.className = 's';
+    b.textContent = `🎅 ${d.organizer} · 👥 ${(d.people || []).length}`;
+    b.onclick = () => { gid = id; history.replaceState(null, '', '#' + id); showApp(true); load(); };
+    list.appendChild(b);
+  });
+}
+function startNew() {
+  const n = $('newOrg').value.trim(); if (!n) return $('newOrg').focus();
+  gid = ''; S = { organizer: n, people: [], ex: {}, template: DEF_TPL };
+  showApp(true); render();
+}
+$('newOrgGo').onclick = startNew;
+$('newOrg').onkeydown = e => { if (e.key === 'Enter') startNew(); };
+$('newBtn').onclick = showStart;
 
 $('go').onclick = async () => {
   if (!confirm('🎅 Do you really want to text everyone?')) return;
@@ -119,9 +146,12 @@ const D = [
   ['🎁 Edit the text, then tap Generate. You never see who got who. Try it!', () => {}],
 ];
 function showStep() { D[step][1](); $('demoTxt').textContent = `${step + 1}/${D.length} ${D[step][0]}`; $('demoNext').style.display = step < D.length - 1 ? '' : 'none'; render(); }
-$('demoBtn').onclick = () => { if (!demo) saved = JSON.stringify(S); demo = true; step = 0; $('demo').style.display = 'block'; $('send').innerHTML = ''; showStep(); };
+let wasStart = false;
+$('demoBtn2').onclick = () => { wasStart = true; showApp(true); startDemo(); };
+$('demoBtn').onclick = () => { wasStart = false; startDemo(); };
+function startDemo() { if (!demo) saved = JSON.stringify(S); demo = true; step = 0; $('demo').style.display = 'block'; $('send').innerHTML = ''; showStep(); }
 $('demoNext').onclick = () => { step++; showStep(); };
-function endDemo() { if (!demo) return; demo = false; $('demo').style.display = 'none'; S = JSON.parse(saved); $('send').innerHTML = ''; $('save').textContent = ''; render(); }
+function endDemo() { if (!demo) return; demo = false; $('demo').style.display = 'none'; S = JSON.parse(saved); $('send').innerHTML = ''; $('save').textContent = ''; if (wasStart) { wasStart = false; showApp(false); } else render(); }
 $('demoEnd').onclick = endDemo;
 
-load();
+if (gid) { showApp(true); load(); } else showStart();
