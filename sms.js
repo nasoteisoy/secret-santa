@@ -28,7 +28,7 @@
   function emailTarget(person) {
     const carrier = (person && person.carrier) || '';
     if (!carrier || carrier === 'att') return { ok: false, why: 'pick a carrier' };
-    const to = gatewayAddress(person && person.phone, carrier);
+    const to = gatewayAddress(person && (person.phone || person.to), carrier);
     if (!to) return { ok: false, why: 'bad phone number' };
     return { ok: true, to };
   }
