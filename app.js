@@ -174,7 +174,7 @@ $('see').onclick = () => {
   seen = true;
   $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}${m.subject ? `<br>📨 ${esc(m.subject)}` : ''}<br>${esc(m.body)}</div>`).join('');
 };
-function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?')) sendMsgs(DRAW); }
+function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?\n📧 Sent from chummygamesinc@gmail.com')) sendMsgs(DRAW); }
 $('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
 $('dlgNew').onclick = () => { $('seenDlg').hidden = true; if (makeDraw()) confirmSend(); };
 $('dlgThis').onclick = () => { $('seenDlg').hidden = true; confirmSend(); };
