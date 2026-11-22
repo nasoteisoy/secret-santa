@@ -6,7 +6,8 @@ const SMS_ENDPOINT = 'https://secret-santa-9759-dev.twil.io/send';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
-let S = { organizer: '', people: [], ex: {}, template: DEF_TPL };
+const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL });
+let S = blank();
 const HASH_ID = location.hash.slice(1); let gid = '', saveT;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -23,7 +24,7 @@ async function flush() {
 }
 // delay: 400ms for typing, 0 for clicks
 function save(delay = 400) {
-  if (!gid && !S.organizer && !S.people.length) return;
+  if (!gid && !S.accountName) return;
   if (!gid) { gid = uid() + uid(); history.replaceState(null, '', '#' + gid); }
   const doc = { ...S, updated: Date.now() };
   localStorage.setItem('ss_' + gid, JSON.stringify(doc));
@@ -36,12 +37,12 @@ async function load() {
   let d = null;
   if (FIREBASE_DB_URL) try { d = await (await fetch(`${FIREBASE_DB_URL}/secretSanta/${gid}.json`)).json(); } catch {}
   if (!d) try { d = JSON.parse(localStorage.getItem('ss_' + gid)); } catch {}
-  if (d) S = { organizer: d.organizer || '', people: d.people || [], ex: d.ex || {}, template: d.template || DEF_TPL };
+  if (d) S = { accountName: d.accountName || d.organizer || '', organizer: d.organizer || '', people: d.people || [], ex: d.ex || {}, template: d.template || DEF_TPL };
   render(0); status(d ? '💾 Saved ✓' : '');
 }
 
 function render(delay = 0) {
-  $('org').value = S.organizer; $('tpl').value = S.template;
+  $('org').value = S.organizer; $('tpl').value = S.template; $('acct').value = S.accountName;
   $('people').innerHTML = '';
   S.people.forEach(p => {
     const row = document.createElement('div'); row.className = 'row';
@@ -68,7 +69,9 @@ function matrix() {
 }
 function update(redraw = true, delay = 400) {
   if (redraw) matrix();
-  $('demoBtn').hidden = S.people.length < 2; endDemo();
+  const hasOrg = !!S.organizer.trim();
+  $('gated').hidden = !hasOrg; $('orgNeed').hidden = hasOrg;
+  $('demoBtn').hidden = !hasOrg || S.people.length < 2; endDemo();
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
@@ -87,33 +90,61 @@ document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t =
 $('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
 // ===== START SCREEN =====
 function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
+// All accounts: {id: record}. Firebase is the source of truth; localStorage only if no Firebase.
+async function allAccounts() {
+  let all = null;
+  if (FIREBASE_DB_URL) try { const r = await fetch(`${FIREBASE_DB_URL}/secretSanta.json`); if (r.ok) all = (await r.json()) || {}; } catch {}
+  if (!all) { all = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('ss_')) try { all[k.slice(3)] = JSON.parse(localStorage.getItem(k)); } catch {} } }
+  delete all._probe;
+  return Object.entries(all).filter(([, d]) => d && (d.accountName || d.organizer || '').trim()).map(([id, d]) => ({ id, d, name: (d.accountName || d.organizer).trim() }));
+}
+const key = s => String(s || '').trim().toLowerCase();
+async function nameTaken(name, selfId) { return (await allAccounts()).some(a => a.id !== selfId && key(a.name) === key(name)); }
+
 async function showStart() {
-  endDemo(); await flush();
+  endDemo(); await flush(); cancelEdit();
   gid = ''; history.replaceState(null, '', location.pathname);
-  S = { organizer: '', people: [], ex: {}, template: DEF_TPL }; $('send').innerHTML = ''; status('');
+  S = blank(); $('send').innerHTML = ''; status(''); $('startMsg').hidden = true;
   showApp(false); $('newOrg').value = ''; $('newOrgGo').disabled = true;
   const list = $('orgList'); list.innerHTML = '<div class="note">⏳</div>';
-  let all = {};
-  if (FIREBASE_DB_URL) try { all = (await (await fetch(`${FIREBASE_DB_URL}/secretSanta.json`)).json()) || {}; } catch {}
-  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('ss_') && !all[k.slice(3)]) try { all[k.slice(3)] = JSON.parse(localStorage.getItem(k)); } catch {} }
-  const groups = Object.entries(all).filter(([id, d]) => id !== '_probe' && d && (d.organizer || '').trim()).sort((x, y) => (y[1].updated || 0) - (x[1].updated || 0));
+  const accts = (await allAccounts()).sort((x, y) => (y.d.updated || 0) - (x.d.updated || 0));
   list.innerHTML = '';
-  groups.forEach(([id, d]) => {
+  accts.forEach(({ id, d, name }) => {
     const b = document.createElement('button'); b.className = 's';
-    b.textContent = `🎅 ${d.organizer} · 👥 ${(d.people || []).length}`;
+    b.textContent = `👤 ${name} · 👥 ${(d.people || []).length}`;
     if (id === HASH_ID) { b.className = 'g'; b.textContent = '⭐ ' + b.textContent; }
     b.onclick = () => { gid = id; history.replaceState(null, '', '#' + id); showApp(true); load(); };
     if (id === HASH_ID) list.prepend(b); else list.appendChild(b);
   });
 }
-function startNew() {
+async function startNew() {
   const n = $('newOrg').value.trim(); if (!n) return $('newOrg').focus();
-  gid = ''; S = { organizer: n, people: [], ex: {}, template: DEF_TPL };
-  showApp(true); render(0);
+  $('newOrgGo').disabled = true;
+  const taken = await nameTaken(n, null);
+  $('newOrgGo').disabled = false;
+  if (taken) { $('startMsg').textContent = '❌ That name is taken'; $('startMsg').hidden = false; return; }
+  gid = ''; S = blank(n);
+  showApp(true); render(0); $('org').focus();
 }
 $('newOrgGo').onclick = startNew;
-$('newOrg').oninput = () => { $('newOrgGo').disabled = !$('newOrg').value.trim(); };
+$('newOrg').oninput = () => { $('newOrgGo').disabled = !$('newOrg').value.trim(); $('startMsg').hidden = true; };
 $('newOrg').onkeydown = e => { if (e.key === 'Enter') startNew(); };
+
+// ===== ACCOUNT RENAME =====
+let editing = false;
+function cancelEdit() { editing = false; $('acct').readOnly = true; $('acct').style.borderColor = 'transparent'; $('acctEdit').textContent = '✏️'; $('acct').value = S.accountName; }
+$('acctEdit').onclick = async () => {
+  const inp = $('acct');
+  if (!editing) { editing = true; inp.readOnly = false; inp.style.borderColor = ''; $('acctEdit').textContent = '✅'; $('acctMsg').hidden = true; inp.focus(); inp.select(); return; }
+  const n = inp.value.trim();
+  if (!n || key(n) === key(S.accountName)) { if (n) S.accountName = n; cancelEdit(); if (n) save(0); return; }
+  $('acctEdit').disabled = true;
+  const taken = await nameTaken(n, gid);
+  $('acctEdit').disabled = false;
+  if (taken) { $('acctMsg').textContent = '❌ Taken'; $('acctMsg').hidden = false; cancelEdit(); return; }
+  S.accountName = n; cancelEdit(); save(0);
+};
+$('acct').onkeydown = e => { if (e.key === 'Enter' && editing) $('acctEdit').onclick(); if (e.key === 'Escape') cancelEdit(); };
 $('newBtn').onclick = showStart;
 
 $('go').onclick = async () => {
