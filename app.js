@@ -80,8 +80,7 @@ function update(redraw = true, delay = 400) {
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
-  const first = S.people[0], second = S.people[1];
-  $('prev').textContent = '👀 ' + Santa.fill(S.template, { organizer: S.organizer || 'You', giver: (first && first.name) || 'Ana', receiver: (second && second.name) || '🤫 (secret)' });
+  $('prev').textContent = Santa.fill(S.template, { organizer: S.organizer || 'You', giver: 'Ana', receiver: 'Bob' });
   const noPhone = S.people.filter(p => !(p.phone || '').trim());
   $('go').disabled = !c.ok || !!noPhone.length;
   $('goWhy').textContent = !c.ok ? '❌ Fix the ❌ above first.' : noPhone.length ? `📱 Missing phone: ${noPhone.map(p => p.name || '?').join(', ')}` : '';
