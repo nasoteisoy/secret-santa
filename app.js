@@ -183,20 +183,20 @@ async function sendMsgs(msgs) {
   });
   skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
   if (!ready.length) return;
-  line('', '⏳ Sending…');
-  let res = null;
-  try {
-    const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
-    res = await r.json();
-  } catch {}
-  // Keep skip lines; replace the "Sending…" row with results.
-  const wait = box.querySelector('.st:not(.ok):not(.bad)'); if (wait) wait.remove();
-  if (Array.isArray(res) && res.length === ready.length) {
-    ready.forEach((x, i) => {
-      if (res[i].ok) line('ok', `✅ sent to ${x.m.name}`);
-      else line('bad', `⚠️ ${x.m.name}: ${String(res[i].error || 'failed').slice(0, 80)}`);
-    });
-  } else line('bad', '⚠️ Could not reach the email sender.');
+  // One text at a time with a gap, so carrier spam filters don't drop a burst.
+  for (let i = 0; i < ready.length; i++) {
+    const x = ready[i];
+    const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${x.m.name}…`; box.appendChild(row);
+    if (i > 0) await new Promise(r => setTimeout(r, 6000));
+    let res = null;
+    try {
+      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: [{ to: x.to, body: x.body }] }) });
+      res = await r.json();
+    } catch {}
+    const ok = Array.isArray(res) && res[0] && res[0].ok;
+    row.className = 'st ' + (ok ? 'ok' : 'bad');
+    row.textContent = ok ? `✅ sent to ${x.m.name}` : `⚠️ ${x.m.name}: ${String((Array.isArray(res) && res[0] && res[0].error) || (res && res.error) || 'could not reach sender').slice(0, 80)}`;
+  }
 }
 
 // Always start on the organizer screen, even with a #group link.
