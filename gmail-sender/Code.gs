@@ -42,13 +42,16 @@ function doPost(e) {
     if (!Array.isArray(msgs) || !msgs.length || msgs.length > 50) {
       return json_({ error: '1-50 messages required' });
     }
-    var i, m, to, body, out = [];
-    for (i = 0; i < msgs.length; i++) {
+    var n = msgs.length, i, m, to, body, out = [];
+    for (i = 0; i < n; i++) {
       if (!allowedTo_(msgs[i] && msgs[i].to)) {
         return json_({ error: 'Invalid destination' });
       }
     }
-    for (i = 0; i < msgs.length; i++) {
+    // Gap between sends so filters don't drop a burst. Caps so n messages fit in ~5 minutes (6-minute Apps Script limit).
+    var gap = Math.min(20000, Math.floor(300000 / n));
+    for (i = 0; i < n; i++) {
+      if (i > 0) Utilities.sleep(gap);
       m = msgs[i];
       to = String((m && m.to) || '');
       body = String((m && m.body) || '');

@@ -192,27 +192,21 @@ async function sendMsgs(msgs) {
   });
   skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
   if (!ready.length) return;
-  // One text at a time with a 25s gap, so filters don't drop a burst.
-  for (let i = 0; i < ready.length; i++) {
-    const x = ready[i];
-    const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${x.m.name}…`; box.appendChild(row);
-    if (i > 0) {
-      const end = Date.now() + 25000;
-      while (true) {
-        const left = Math.ceil((end - Date.now()) / 1000);
-        if (left <= 0) break;
-        row.textContent = `⏳ ${x.m.name} in ${left}s`;
-        await new Promise(r => setTimeout(r, 250));
-      }
-    }
-    let res = null;
-    try {
-      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: [{ to: x.to, subject: x.subject, body: x.body }] }) });
-      res = await r.json();
-    } catch {}
-    const ok = Array.isArray(res) && res[0] && res[0].ok;
-    row.className = 'st ' + (ok ? 'ok' : 'bad');
-    row.textContent = ok ? `✅ sent to ${x.m.name}` : `⚠️ ${x.m.name}: ${String((Array.isArray(res) && res[0] && res[0].error) || (res && res.error) || 'could not reach sender').slice(0, 80)}`;
+  const req = fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', keepalive: false, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, subject: x.subject, body: x.body })) }) });
+  line('ok', '✅ Sending started. You can close this page. Emails go out over the next few minutes from chummygamesinc@gmail.com.');
+  const rows = ready.map(x => {
+    const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${x.m.name}…`; box.appendChild(row); return row;
+  });
+  let res = null;
+  try { const r = await req; res = await r.json(); } catch {}
+  if (Array.isArray(res) && res.length === ready.length) {
+    ready.forEach((x, i) => {
+      const ok = res[i] && res[i].ok;
+      rows[i].className = 'st ' + (ok ? 'ok' : 'bad');
+      rows[i].textContent = ok ? `✅ sent to ${x.m.name}` : `⚠️ ${x.m.name}: ${String((res[i] && res[i].error) || 'failed').slice(0, 80)}`;
+    });
+  } else if (res && res.error) {
+    line('bad', '⚠️ ' + String(res.error).slice(0, 80));
   }
 }
 

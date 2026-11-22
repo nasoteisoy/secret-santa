@@ -28,4 +28,4 @@ The app POSTs JSON as `Content-Type: text/plain` (avoids a CORS preflight). Apps
 
 `GET` is a health check and returns `{ "ok": true, "service": "gmail-sender" }`.
 
-Sends with `GmailApp.sendEmail(to, String(m.subject||'').slice(0,100), body)` — plain text only, no `htmlBody`.
+Validates the request first, then sends each message with `GmailApp.sendEmail(to, String(m.subject||'').slice(0,100), body)` (plain text only, no `htmlBody`), with `Utilities.sleep` between sends: `gap = min(20000, floor(300000/n))` ms, so a batch fits in the 6-minute Apps Script limit. Redeploy as a **new version** of the existing ChummyGames web app (do not change the `/exec` URL).
