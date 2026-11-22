@@ -2,7 +2,7 @@
 // Firebase Realtime Database (project chummy-games). Set to '' to use only localStorage.
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 // Google Apps Script web app that sends email-to-text. Empty = not set up yet.
-const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbyEn12G45HgkdESTA6fmw_-7RkczRXnsX-Pe2UWMMA93_rvk52wfEPoy5pDzBVhWOK0BQ/exec';
+const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbwstNSj2eafr2esvsNbLlG-hmGuQOicwcTZuEU-wAravwV5mhXm23KYPT5GNvgXdADb/exec';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
