@@ -2,7 +2,7 @@
 // Firebase Realtime Database (project chummy-games). Set to '' to use only localStorage.
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 // Optional: server that sends SMS (e.g. Twilio Cloud Function). POST {to, body}. Empty = sms: links.
-const SMS_ENDPOINT = '';
+const SMS_ENDPOINT = 'https://secret-santa-9759-dev.twil.io/send';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
@@ -123,20 +123,37 @@ $('go').onclick = async () => {
   // Pairings live only in these message bodies. Never shown, logged, or saved.
   const msgs = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
   const box = $('send'); box.innerHTML = '';
-  if (SMS_ENDPOINT) {
-    let ok = 0;
-    for (const m of msgs) try { if ((await fetch(SMS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: m.to, body: m.body }) })).ok) ok++; } catch {}
-    box.innerHTML = `<div class="st ${ok === msgs.length ? 'ok' : 'bad'}">📨 Sent ${ok}/${msgs.length}</div>`;
-    return;
-  }
-  box.innerHTML = '<div class="note">Tap each one, then hit send in Messages. 🤫 Don\'t read the text! (It is visible in your Messages app.)</div>';
-  msgs.forEach(m => {
+  const smsBtn = m => {
     const a = document.createElement('a');
     a.href = `sms:${m.to.replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(m.body)}`;
     a.textContent = `📱 Send to ${m.name} (${m.to})`;
     a.onclick = () => setTimeout(() => { a.classList.add('done'); a.textContent = '✅ ' + a.textContent.slice(2); }, 300);
-    box.appendChild(a);
-  });
+    return a;
+  };
+  const line = (cls, t) => { const d = document.createElement('div'); d.className = 'st ' + cls; d.style.margin = '6px 0'; d.textContent = t; box.appendChild(d); };
+  let failed = msgs;
+  if (SMS_ENDPOINT) {
+    line('', '⏳ Sending…');
+    let res = null;
+    try {
+      const r = await fetch(SMS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs.map(m => ({ to: m.to, body: m.body })) }) });
+      res = await r.json();
+    } catch {}
+    box.innerHTML = '';
+    if (Array.isArray(res) && res.length === msgs.length) {
+      failed = [];
+      msgs.forEach((m, i) => {
+        if (res[i].ok) line('ok', `✅ sent to ${m.name}`);
+        else { line('bad', `⚠️ ${m.name}: ${String(res[i].error || 'failed').replace(/^\d+: /, '').slice(0, 80)}`); failed.push(m); }
+      });
+    } else line('bad', '⚠️ Could not reach the texting service.');
+  }
+  if (failed.length) {
+    const n = document.createElement('div'); n.className = 'note';
+    n.textContent = '📱 Backup: tap to send from your phone. 🤫 Don\'t read the text! (It is visible in your Messages app.)';
+    box.appendChild(n);
+    failed.forEach(m => box.appendChild(smsBtn(m)));
+  }
 };
 
 // ===== DEMO (dry run on their real data; nothing saved or texted) =====
