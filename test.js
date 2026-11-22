@@ -10,4 +10,26 @@ for (let i = 0; i < 300; i++) { const ex = { A: ['B'] }; const d = S.draw(P, ex)
   a.deepStrictEqual([...d].sort(), [0,1,2,3]); d.forEach((r, g) => { a.notStrictEqual(r, g); }); a.notStrictEqual(d[0], 1); }
 a.strictEqual(S.draw(P, { A: ['B','C','D'] }), null);
 a.strictEqual(S.fill('Hi {giver}! {organizer}: {receiver}', { giver: 'x', organizer: 'y', receiver: 'z' }), 'Hi x! y: z');
+
+const Sms = require('./sms.js');
+a.strictEqual(Sms.digits10('602-349-7622'), '6023497622');
+a.strictEqual(Sms.digits10('+16023497622'), '6023497622');
+a.strictEqual(Sms.digits10('16023497622'), '6023497622');
+a.strictEqual(Sms.digits10('602349762'), null);
+a.strictEqual(Sms.gatewayAddress('602-349-7622', 'tmobile'), '6023497622@tmomail.net');
+a.strictEqual(Sms.gatewayAddress('+1 (602) 349-7622', 'verizon'), '6023497622@vtext.com');
+a.strictEqual(Sms.gatewayAddress('16023497622', 'mint'), '6023497622@tmomail.net');
+a.strictEqual(Sms.gatewayAddress('6023497622', 'metro'), '6023497622@mymetropcs.com');
+a.strictEqual(Sms.gatewayAddress('6023497622', 'fi'), '6023497622@msg.fi.google.com');
+a.strictEqual(Sms.gatewayAddress('6023497622', 'cricket'), '6023497622@sms.cricketwireless.net');
+a.strictEqual(Sms.gatewayAddress('6023497622', 'uscc'), '6023497622@email.uscc.net');
+a.strictEqual(Sms.gatewayAddress('6023497622', 'att'), null);
+a.strictEqual(Sms.gatewayAddress('6023497622', ''), null);
+a.deepStrictEqual(Sms.emailTarget({ phone: '6023497622', carrier: '' }), { ok: false, why: 'pick a carrier' });
+a.deepStrictEqual(Sms.emailTarget({ phone: '6023497622' }), { ok: false, why: 'pick a carrier' });
+a.deepStrictEqual(Sms.emailTarget({ phone: '6023497622', carrier: 'att' }), { ok: false, why: 'pick a carrier' });
+a.deepStrictEqual(Sms.emailTarget({ phone: '6023497622', carrier: 'tmobile' }), { ok: true, to: '6023497622@tmomail.net' });
+a.deepStrictEqual(Sms.emailTarget({ phone: '123', carrier: 'verizon' }), { ok: false, why: 'bad phone number' });
+a.ok(!Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bob 🎁').includes('🎅'));
+a.strictEqual(Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bob 🎁'), 'Hi Ana! You set up Secret Santa. You are giving to Bob');
 console.log('tests ok');

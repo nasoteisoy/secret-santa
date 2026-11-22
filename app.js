@@ -3,6 +3,8 @@
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 // Optional: server that sends SMS (e.g. Twilio Cloud Function). POST {to, body}. Empty = sms: links.
 const SMS_ENDPOINT = 'https://secret-santa-9759-dev.twil.io/send';
+// Google Apps Script web app that sends email-to-text. Empty = not set up yet.
+const GMAIL_SENDER_URL = '';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
@@ -46,10 +48,13 @@ function render(delay = 0) {
   $('people').innerHTML = '';
   S.people.forEach(p => {
     const row = document.createElement('div'); row.className = 'row';
-    row.innerHTML = `<input placeholder="Name" value="${esc(p.name)}"><input type="tel" placeholder="📱 Phone" value="${esc(p.phone)}"><button class="s">🗑️</button>`;
-    const [n, ph, del] = row.children;
+    const opts = Sms.CARRIERS.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
+    row.innerHTML = `<input placeholder="Name" value="${esc(p.name)}"><input type="tel" placeholder="📱 Phone" value="${esc(p.phone)}"><select aria-label="Carrier"><option value="">📡 Carrier</option>${opts}</select><button class="s">🗑️</button>`;
+    const [n, ph, car, del] = row.children;
+    car.value = p.carrier || '';
     n.oninput = () => { p.name = n.value; update(); };
     ph.oninput = () => { p.phone = ph.value; update(); };
+    car.onchange = () => { p.carrier = car.value; update(false, 0); };
     del.onclick = () => { S.people = S.people.filter(x => x !== p); delete S.ex[p.id]; for (const k in S.ex) S.ex[k] = S.ex[k].filter(x => x !== p.id); render(); };
     $('people').appendChild(row);
   });
@@ -87,7 +92,7 @@ const esc = s => String(s || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '
 $('org').oninput = e => { S.organizer = e.target.value; update(false); };
 $('tpl').oninput = e => { S.template = e.target.value; update(false); };
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $('tpl'), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); S.template = t.value; update(false, 0); t.focus(); });
-$('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
+$('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '', carrier: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
 // ===== START SCREEN =====
 function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
 // All accounts: {id: record}. Firebase is the source of truth; localStorage only if no Firebase.
@@ -152,7 +157,7 @@ let DRAW = null, seen = false;
 function makeDraw() {
   const P = S.people, d = Santa.draw(P, S.ex);
   if (!d) { alert('❌ No match possible.'); return false; }
-  DRAW = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), rname: P[d[i]].name, body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
+  DRAW = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), carrier: g.carrier || '', rname: P[d[i]].name, body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
   seen = false; $('results').innerHTML = ''; $('send').innerHTML = ''; $('drawBox').hidden = false;
   return true;
 }
@@ -164,6 +169,16 @@ $('see').onclick = () => {
   seen = true;
   $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}<br>${esc(m.body)}</div>`).join('');
 };
+let sendMethod = 'email';
+function setMethod(m) {
+  sendMethod = m;
+  $('howEmail').className = m === 'email' ? 'g' : 's';
+  $('howTwilio').className = m === 'twilio' ? 'g' : 's';
+  $('sendBtn').textContent = (m === 'email' ? '📧' : '📱') + ' Send texts';
+  $('howNote').textContent = m === 'email' ? '📧 No emoji (carriers strip them).' : '📱 Twilio trial: can only text numbers verified in Twilio.';
+}
+$('howEmail').onclick = () => setMethod('email');
+$('howTwilio').onclick = () => setMethod('twilio');
 function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?')) sendMsgs(DRAW); }
 $('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
 $('dlgNew').onclick = () => { $('seenDlg').hidden = true; if (makeDraw()) confirmSend(); };
@@ -179,6 +194,32 @@ async function sendMsgs(msgs) {
     return a;
   };
   const line = (cls, t) => { const d = document.createElement('div'); d.className = 'st ' + cls; d.style.margin = '6px 0'; d.textContent = t; box.appendChild(d); };
+  if (sendMethod === 'email') {
+    if (!GMAIL_SENDER_URL) { line('bad', '📧 Email sender not set up yet'); return; }
+    const ready = [], skipped = [];
+    msgs.forEach(m => {
+      const t = Sms.emailTarget(m);
+      if (t.ok) ready.push({ m, to: t.to, body: Sms.stripEmoji(m.body) });
+      else skipped.push({ m, why: t.why });
+    });
+    skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
+    if (!ready.length) return;
+    line('', '⏳ Sending…');
+    let res = null;
+    try {
+      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
+      res = await r.json();
+    } catch {}
+    // Keep skip lines; replace the "Sending…" row with results.
+    const wait = box.querySelector('.st:not(.ok):not(.bad)'); if (wait) wait.remove();
+    if (Array.isArray(res) && res.length === ready.length) {
+      ready.forEach((x, i) => {
+        if (res[i].ok) line('ok', `✅ sent to ${x.m.name}`);
+        else line('bad', `⚠️ ${x.m.name}: ${String(res[i].error || 'failed').slice(0, 80)}`);
+      });
+    } else line('bad', '⚠️ Could not reach the email sender.');
+    return;
+  }
   let failed = msgs;
   if (SMS_ENDPOINT) {
     line('', '⏳ Sending…');

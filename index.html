@@ -7,11 +7,11 @@ main{max-width:760px;margin:auto;padding:14px}
 h1{margin:6px 0;font-size:28px;text-align:center}
 .card{background:#fff;color:#222;border-radius:16px;padding:14px;margin:12px 0}
 .card h2{margin:0 0 8px;font-size:20px}
-input,textarea{font-size:17px;padding:10px;border:2px solid #ccc;border-radius:10px;width:100%}
+input,textarea,select{font-size:17px;padding:10px;border:2px solid #ccc;border-radius:10px;width:100%}
 textarea{min-height:80px}
 button{font-size:18px;padding:12px 16px;border:0;border-radius:12px;background:#c62828;color:#fff;cursor:pointer;font-weight:700}
 button.g{background:#2e7d32}button.s{background:#eee;color:#222}button:disabled{opacity:.4;cursor:not-allowed}
-.row{display:flex;gap:8px;align-items:center;margin:6px 0}.row input{flex:1}
+.row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.row input,.row select{flex:1;min-width:120px}
 .big{width:100%;font-size:22px;padding:16px;margin-top:6px}
 table{border-collapse:collapse;margin:auto}td,th{padding:4px;text-align:center;font-size:14px}
 th.v{writing-mode:vertical-rl;transform:rotate(180deg);max-height:110px}
@@ -67,9 +67,13 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 <div id="drawBox" hidden style="margin-top:10px"><div class="st ok">✅ List generated</div>
 <button class="big s" id="again">🔁 Generate again</button>
 <button class="big s" id="see">👀 See results</button>
-<button class="big g" id="sendBtn">📱 Send texts</button>
+<div id="how" class="row" style="justify-content:center;margin-top:10px">
+<button type="button" class="g" id="howEmail">📧 Email</button>
+<button type="button" class="s" id="howTwilio">📱 Twilio</button>
+</div>
+<div class="note" id="howNote">📧 No emoji (carriers strip them).</div>
+<button class="big g" id="sendBtn">📧 Send texts</button>
 <div id="results"></div></div>
-<div class="note">Twilio trial: can only text numbers verified in Twilio.</div>
 <div class="send" id="send"></div></div>
 </div>
 </div>
@@ -77,6 +81,7 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 <div id="seenDlg" hidden style="position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:9">
 <div class="card" style="max-width:420px;text-align:center"><h2>👀 You already saw the results. Generate a new one first so it stays secret?</h2>
 <button class="big g" id="dlgNew">🔁 New one &amp; send</button><button class="big s" id="dlgThis">📱 Send this one</button><button class="big s" id="dlgCancel">Cancel</button></div></div>
-<script src="santa.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="santa.js?v=8"></script>
+<script src="sms.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body></html>
