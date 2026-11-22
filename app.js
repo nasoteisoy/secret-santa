@@ -7,34 +7,40 @@ const SMS_ENDPOINT = '';
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
 let S = { organizer: '', people: [], ex: {}, template: DEF_TPL };
-let gid = location.hash.slice(1) || '', saveT;
+const HASH_ID = location.hash.slice(1); let gid = '', saveT;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-function save() {
+let pending = null;
+function status(t) { $('save').textContent = t; }
+async function flush() {
+  clearTimeout(saveT); const data = pending; pending = null;
+  if (!data) return;
+  if (!FIREBASE_DB_URL) return status('💾 Saved ✓ (this device)');
+  try {
+    const r = await fetch(`${FIREBASE_DB_URL}/secretSanta/${data.gid}.json`, { method: 'PUT', body: JSON.stringify(data.doc), keepalive: true });
+    if (!pending) status(r.ok ? '💾 Saved ✓' : '⚠️ Not saved');
+  } catch { if (!pending) status('⚠️ Not saved'); }
+}
+// delay: 400ms for typing, 0 for clicks
+function save(delay = 400) {
   if (!gid && !S.organizer && !S.people.length) return;
   if (!gid) { gid = uid() + uid(); history.replaceState(null, '', '#' + gid); }
-  const data = { ...S, updated: Date.now() };
-  localStorage.setItem('ss_' + gid, JSON.stringify(data));
-  clearTimeout(saveT);
-  saveT = setTimeout(async () => {
-    if (!FIREBASE_DB_URL) { $('save').textContent = '💾 Saved on this device'; return; }
-    try {
-      const r = await fetch(`${FIREBASE_DB_URL}/secretSanta/${gid}.json`, { method: 'PUT', body: JSON.stringify(data) });
-      $('save').textContent = r.ok ? '☁️ Saved to Firebase' : '💾 Saved on this device (Firebase blocked)';
-    } catch { $('save').textContent = '💾 Saved on this device (offline)'; }
-  }, 600);
+  const doc = { ...S, updated: Date.now() };
+  localStorage.setItem('ss_' + gid, JSON.stringify(doc));
+  pending = { gid, doc }; status('⏳ Saving…');
+  clearTimeout(saveT); saveT = setTimeout(flush, delay);
 }
+addEventListener('pagehide', flush);
 async function load() {
   if (!gid) return render();
   let d = null;
   if (FIREBASE_DB_URL) try { d = await (await fetch(`${FIREBASE_DB_URL}/secretSanta/${gid}.json`)).json(); } catch {}
   if (!d) try { d = JSON.parse(localStorage.getItem('ss_' + gid)); } catch {}
   if (d) S = { organizer: d.organizer || '', people: d.people || [], ex: d.ex || {}, template: d.template || DEF_TPL };
-  $('save').textContent = d ? '☁️ Loaded' : '';
-  render();
+  render(0); status(d ? '💾 Saved ✓' : '');
 }
 
-function render() {
+function render(delay = 0) {
   $('org').value = S.organizer; $('tpl').value = S.template;
   $('people').innerHTML = '';
   S.people.forEach(p => {
@@ -46,7 +52,7 @@ function render() {
     del.onclick = () => { S.people = S.people.filter(x => x !== p); delete S.ex[p.id]; for (const k in S.ex) S.ex[k] = S.ex[k].filter(x => x !== p.id); render(); };
     $('people').appendChild(row);
   });
-  update();
+  update(true, delay);
 }
 function matrix() {
   const P = S.people, t = $('mx');
@@ -57,10 +63,10 @@ function matrix() {
   t.querySelectorAll('input').forEach(c => c.onchange = () => {
     const l = S.ex[c.dataset.g] = (S.ex[c.dataset.g] || []).filter(x => x !== c.dataset.r);
     if (c.checked) l.push(c.dataset.r);
-    update(false);
+    update(false, 0);
   });
 }
-function update(redraw = true) {
+function update(redraw = true, delay = 400) {
   if (redraw) matrix();
   $('demoBtn').hidden = S.people.length < 2; endDemo();
   const c = Santa.check(S.people, S.ex);
@@ -71,21 +77,21 @@ function update(redraw = true) {
   const noPhone = S.people.filter(p => !(p.phone || '').trim());
   $('go').disabled = !c.ok || !!noPhone.length;
   $('goWhy').textContent = !c.ok ? '❌ Fix the ❌ above first.' : noPhone.length ? `📱 Missing phone: ${noPhone.map(p => p.name || '?').join(', ')}` : '';
-  save();
+  save(delay);
 }
 const esc = s => String(s || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
 $('org').oninput = e => { S.organizer = e.target.value; update(false); };
 $('tpl').oninput = e => { S.template = e.target.value; update(false); };
-document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $('tpl'), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); S.template = t.value; update(false); t.focus(); });
+document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $('tpl'), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); S.template = t.value; update(false, 0); t.focus(); });
 $('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
 // ===== START SCREEN =====
 function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
 async function showStart() {
-  endDemo(); clearTimeout(saveT);
+  endDemo(); await flush();
   gid = ''; history.replaceState(null, '', location.pathname);
-  S = { organizer: '', people: [], ex: {}, template: DEF_TPL }; $('send').innerHTML = ''; $('save').textContent = '';
-  showApp(false); $('newOrg').value = '';
+  S = { organizer: '', people: [], ex: {}, template: DEF_TPL }; $('send').innerHTML = ''; status('');
+  showApp(false); $('newOrg').value = ''; $('newOrgGo').disabled = true;
   const list = $('orgList'); list.innerHTML = '<div class="note">⏳</div>';
   let all = {};
   if (FIREBASE_DB_URL) try { all = (await (await fetch(`${FIREBASE_DB_URL}/secretSanta.json`)).json()) || {}; } catch {}
@@ -95,16 +101,18 @@ async function showStart() {
   groups.forEach(([id, d]) => {
     const b = document.createElement('button'); b.className = 's';
     b.textContent = `🎅 ${d.organizer} · 👥 ${(d.people || []).length}`;
+    if (id === HASH_ID) { b.className = 'g'; b.textContent = '⭐ ' + b.textContent; }
     b.onclick = () => { gid = id; history.replaceState(null, '', '#' + id); showApp(true); load(); };
-    list.appendChild(b);
+    if (id === HASH_ID) list.prepend(b); else list.appendChild(b);
   });
 }
 function startNew() {
   const n = $('newOrg').value.trim(); if (!n) return $('newOrg').focus();
   gid = ''; S = { organizer: n, people: [], ex: {}, template: DEF_TPL };
-  showApp(true); render();
+  showApp(true); render(0);
 }
 $('newOrgGo').onclick = startNew;
+$('newOrg').oninput = () => { $('newOrgGo').disabled = !$('newOrg').value.trim(); };
 $('newOrg').onkeydown = e => { if (e.key === 'Enter') startNew(); };
 $('newBtn').onclick = showStart;
 
@@ -147,4 +155,5 @@ $('demoBtn').onclick = () => {
 function endDemo() { $('demoBox').hidden = true; $('demoOut').innerHTML = ''; }
 $('demoEnd').onclick = endDemo;
 
-if (gid) { showApp(true); load(); } else showStart();
+// Always start on the organizer screen, even with a #group link.
+showStart();
