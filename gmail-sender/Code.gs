@@ -21,7 +21,9 @@ function allowedTo_(addr) {
   var a = String(addr || '').trim().toLowerCase();
   var at = a.lastIndexOf('@');
   if (at < 1) return false;
-  return GATEWAYS.indexOf(a.slice(at + 1)) !== -1;
+  if (GATEWAYS.indexOf(a.slice(at + 1)) !== -1) return true;
+  // Normal email (gmail, yahoo, etc.), not only carrier gateways.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a);
 }
 
 function doGet() {

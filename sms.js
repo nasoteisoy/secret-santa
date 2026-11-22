@@ -24,11 +24,19 @@
     if (!c || !c.domain || !n) return null;
     return n + '@' + c.domain;
   }
-  // {ok:true, to} or {ok:false, why} — skip when not sendable by email-to-text
+  function isEmail(s) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
+  }
+  // {ok:true, to} or {ok:false, why} — skip when not sendable
   function emailTarget(person) {
+    const raw = String((person && (person.phone || person.to)) || '').trim();
+    if (raw.includes('@')) {
+      if (!isEmail(raw)) return { ok: false, why: 'bad email' };
+      return { ok: true, to: raw };
+    }
     const carrier = (person && person.carrier) || '';
     if (!carrier || carrier === 'att') return { ok: false, why: 'pick a carrier' };
-    const to = gatewayAddress(person && (person.phone || person.to), carrier);
+    const to = gatewayAddress(raw, carrier);
     if (!to) return { ok: false, why: 'bad phone number' };
     return { ok: true, to };
   }
@@ -41,6 +49,6 @@
       .replace(/\n{3,}/g, '\n\n')
       .trim();
   }
-  const api = { CARRIERS, GATEWAYS, digits10, gatewayAddress, emailTarget, stripEmoji };
+  const api = { CARRIERS, GATEWAYS, digits10, gatewayAddress, isEmail, emailTarget, stripEmoji };
   if (typeof module !== 'undefined') module.exports = api; else root.Sms = api;
 })(this);

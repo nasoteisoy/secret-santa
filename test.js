@@ -34,4 +34,14 @@ a.ok(!Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bo
 a.strictEqual(Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bob 🎁'), 'Hi Ana! You set up Secret Santa. You are giving to Bob');
 a.strictEqual(S.fill('From {organizer} to {giver}', { organizer: 'You', giver: 'Ana', receiver: 'Bob' }), 'From You to Ana');
 a.strictEqual(Sms.stripEmoji(S.fill('🎅 Secret Santa for {receiver}', { giver: 'Ana', organizer: 'You', receiver: 'Bob' })).slice(0, 100), 'Secret Santa for Bob');
+
+a.ok(Sms.isEmail('josefinarcamou@gmail.com'));
+a.ok(Sms.isEmail('Fr.charlesgoraieb@gmail.com'));
+a.ok(!Sms.isEmail('not-an-email'));
+a.ok(!Sms.isEmail('bad@'));
+a.ok(!Sms.isEmail('a@b'));
+a.deepStrictEqual(Sms.emailTarget({ phone: 'josefinarcamou@gmail.com' }), { ok: true, to: 'josefinarcamou@gmail.com' });
+a.deepStrictEqual(Sms.emailTarget({ phone: '  Fernando.Camou@gmail.com  ', carrier: 'tmobile' }), { ok: true, to: 'Fernando.Camou@gmail.com' });
+a.deepStrictEqual(Sms.emailTarget({ to: 'john.escarcega@cox.net' }), { ok: true, to: 'john.escarcega@cox.net' });
+a.deepStrictEqual(Sms.emailTarget({ phone: 'bad@', carrier: 'tmobile' }), { ok: false, why: 'bad email' });
 console.log('tests ok');

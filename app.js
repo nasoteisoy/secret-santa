@@ -47,11 +47,13 @@ function render(delay = 0) {
   S.people.forEach(p => {
     const row = document.createElement('div'); row.className = 'row';
     const opts = Sms.CARRIERS.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
-    row.innerHTML = `<input placeholder="Name" value="${esc(p.name)}"><input type="tel" placeholder="📱 Phone" value="${esc(p.phone)}"><select aria-label="Carrier"><option value="">📡 Carrier</option>${opts}</select><button class="s">🗑️</button>`;
+    row.innerHTML = `<input placeholder="Name" value="${esc(p.name)}"><input type="text" placeholder="Phone or email" value="${esc(p.phone)}"><select aria-label="Carrier"><option value="">📡 Carrier</option>${opts}</select><button class="s">🗑️</button>`;
     const [n, ph, car, del] = row.children;
     car.value = p.carrier || '';
+    const syncCar = () => { car.hidden = (ph.value || '').includes('@'); };
+    syncCar();
     n.oninput = () => { p.name = n.value; update(); };
-    ph.oninput = () => { p.phone = ph.value; update(); };
+    ph.oninput = () => { p.phone = ph.value; syncCar(); update(); };
     car.onchange = () => { p.carrier = car.value; update(false, 0); };
     del.onclick = () => { S.people = S.people.filter(x => x !== p); delete S.ex[p.id]; for (const k in S.ex) S.ex[k] = S.ex[k].filter(x => x !== p.id); render(); };
     $('people').appendChild(row);
@@ -81,9 +83,9 @@ function update(redraw = true, delay = 400) {
   const sample = { organizer: S.organizer || 'You', giver: 'Ana', receiver: 'Bob' };
   const subjPrev = Santa.fill(S.subject || '', sample);
   $('prev').textContent = (subjPrev ? '📨 ' + subjPrev + '\n' : '') + Santa.fill(S.template, sample);
-  const noPhone = S.people.filter(p => !(p.phone || '').trim());
-  $('go').disabled = !c.ok || !!noPhone.length;
-  $('goWhy').textContent = !c.ok ? '❌ Fix the ❌ above first.' : noPhone.length ? `📱 Missing phone: ${noPhone.map(p => p.name || '?').join(', ')}` : '';
+  const noContact = S.people.filter(p => !(p.phone || '').trim());
+  $('go').disabled = !c.ok || !!noContact.length;
+  $('goWhy').textContent = !c.ok ? '❌ Fix the ❌ above first.' : noContact.length ? `📱 Missing phone or email: ${noContact.map(p => p.name || '?').join(', ')}` : '';
   save(delay);
 }
 const esc = s => String(s || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));

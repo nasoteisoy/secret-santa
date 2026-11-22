@@ -26,7 +26,7 @@ The app POSTs JSON as `Content-Type: text/plain` (avoids a CORS preflight). Apps
 
 - `groupId` must be a non-empty string.
 - `messages` must be 1–50 items.
-- Every `to` address must use one of: `tmomail.net`, `vtext.com`, `mymetropcs.com`, `msg.fi.google.com`, `sms.cricketwireless.net`, `email.uscc.net`.
+- Every `to` address must be a carrier gateway (`tmomail.net`, `vtext.com`, `mymetropcs.com`, `msg.fi.google.com`, `sms.cricketwireless.net`, `email.uscc.net`) **or** a normal email (basic `name@domain.tld` shape). Redeploy after this change: the older script rejects ordinary addresses via the gateway allowlist.
 
 `GET` is a health check and returns `{ "ok": true, "service": "gmail-sender" }`.
 
