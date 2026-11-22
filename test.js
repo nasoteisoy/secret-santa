@@ -44,4 +44,7 @@ a.deepStrictEqual(Sms.emailTarget({ phone: 'josefinarcamou@gmail.com' }), { ok: 
 a.deepStrictEqual(Sms.emailTarget({ phone: '  Fernando.Camou@gmail.com  ', carrier: 'tmobile' }), { ok: true, to: 'Fernando.Camou@gmail.com' });
 a.deepStrictEqual(Sms.emailTarget({ to: 'john.escarcega@cox.net' }), { ok: true, to: 'john.escarcega@cox.net' });
 a.deepStrictEqual(Sms.emailTarget({ phone: 'bad@', carrier: 'tmobile' }), { ok: false, why: 'bad email' });
+
+a.strictEqual(S.fill("{organizer}'s Secret Santa for {giver}", { organizer: 'Josefina', giver: 'Ana', receiver: 'Bob' }), "Josefina's Secret Santa for Ana");
+a.strictEqual(S.fill('Hi {giver}, {organizer} set up our family Secret Santa this year. You are giving a gift to {receiver}. Please keep it a secret. Merry Christmas, {organizer}', { organizer: 'Josefina', giver: 'Ana', receiver: 'Bob' }), 'Hi Ana, Josefina set up our family Secret Santa this year. You are giving a gift to Bob. Please keep it a secret. Merry Christmas, Josefina');
 console.log('tests ok');

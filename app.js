@@ -5,8 +5,9 @@ const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbwstNSj2eafr2esvsNbLlG-hmGuQOicwcTZuEU-wAravwV5mhXm23KYPT5GNvgXdADb/exec';
 // ==================
 const $ = id => document.getElementById(id);
-const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
-const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL, subject: '' });
+const DEF_TPL = 'Hi {giver}, {organizer} set up our family Secret Santa this year. You are giving a gift to {receiver}. Please keep it a secret. Merry Christmas, {organizer}';
+const DEF_SUBJ = "{organizer}'s Secret Santa for {giver}";
+const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL, subject: DEF_SUBJ });
 let S = blank();
 const HASH_ID = location.hash.slice(1); let gid = '', saveT;
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -191,11 +192,19 @@ async function sendMsgs(msgs) {
   });
   skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
   if (!ready.length) return;
-  // One text at a time with a gap, so carrier spam filters don't drop a burst.
+  // One text at a time with a 25s gap, so filters don't drop a burst.
   for (let i = 0; i < ready.length; i++) {
     const x = ready[i];
     const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${x.m.name}…`; box.appendChild(row);
-    if (i > 0) await new Promise(r => setTimeout(r, 6000));
+    if (i > 0) {
+      const end = Date.now() + 25000;
+      while (true) {
+        const left = Math.ceil((end - Date.now()) / 1000);
+        if (left <= 0) break;
+        row.textContent = `⏳ ${x.m.name} in ${left}s`;
+        await new Promise(r => setTimeout(r, 250));
+      }
+    }
     let res = null;
     try {
       const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: [{ to: x.to, subject: x.subject, body: x.body }] }) });
