@@ -2,7 +2,7 @@
 // Firebase Realtime Database (project chummy-games). Set to '' to use only localStorage.
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 // Google Apps Script web app that sends email-to-text. Empty = not set up yet.
-const GMAIL_SENDER_URL = '';
+const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbyEn12G45HgkdESTA6fmw_-7RkczRXnsX-Pe2UWMMA93_rvk52wfEPoy5pDzBVhWOK0BQ/exec';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
@@ -186,7 +186,7 @@ async function sendMsgs(msgs) {
   line('', '⏳ Sending…');
   let res = null;
   try {
-    const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
+    const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
     res = await r.json();
   } catch {}
   // Keep skip lines; replace the "Sending…" row with results.
