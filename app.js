@@ -64,7 +64,7 @@ function matrix() {
   const P = S.people, t = $('mx');
   if (P.length < 2) { t.innerHTML = ''; return; }
   t.innerHTML = '<tr><th></th>' + P.map(p => `<th class="v">🎁 ${esc(p.name || '?')}</th>`).join('') + '</tr>' +
-    P.map(g => `<tr><th style="text-align:right">${esc(g.name || '?')}</th>` + P.map(r => g.id === r.id ? '<td class="self">—</td>' :
+    P.map(g => `<tr><th style="text-align:right">🎅 ${esc(g.name || '?')}</th>` + P.map(r => g.id === r.id ? '<td class="self">—</td>' :
       `<td><input type="checkbox" data-g="${g.id}" data-r="${r.id}" ${(S.ex[g.id] || []).includes(r.id) ? 'checked' : ''}></td>`).join('') + '</tr>').join('');
   t.querySelectorAll('input').forEach(c => c.onchange = () => {
     const l = S.ex[c.dataset.g] = (S.ex[c.dataset.g] || []).filter(x => x !== c.dataset.r);
