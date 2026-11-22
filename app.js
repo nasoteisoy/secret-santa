@@ -1,8 +1,6 @@
 // ===== CONFIG =====
 // Firebase Realtime Database (project chummy-games). Set to '' to use only localStorage.
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
-// Optional: server that sends SMS (e.g. Twilio Cloud Function). POST {to, body}. Empty = sms: links.
-const SMS_ENDPOINT = 'https://secret-santa-9759-dev.twil.io/send';
 // Google Apps Script web app that sends email-to-text. Empty = not set up yet.
 const GMAIL_SENDER_URL = '';
 // ==================
@@ -168,16 +166,6 @@ $('see').onclick = () => {
   seen = true;
   $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}<br>${esc(m.body)}</div>`).join('');
 };
-let sendMethod = 'email';
-function setMethod(m) {
-  sendMethod = m;
-  $('howEmail').className = m === 'email' ? 'g' : 's';
-  $('howTwilio').className = m === 'twilio' ? 'g' : 's';
-  $('sendBtn').textContent = (m === 'email' ? '📧' : '📱') + ' Send texts';
-  $('howNote').textContent = m === 'email' ? '📧 No emoji (carriers strip them).' : '📱 Twilio trial: can only text numbers verified in Twilio.';
-}
-$('howEmail').onclick = () => setMethod('email');
-$('howTwilio').onclick = () => setMethod('twilio');
 function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?')) sendMsgs(DRAW); }
 $('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
 $('dlgNew').onclick = () => { $('seenDlg').hidden = true; if (makeDraw()) confirmSend(); };
@@ -185,63 +173,30 @@ $('dlgThis').onclick = () => { $('seenDlg').hidden = true; confirmSend(); };
 $('dlgCancel').onclick = () => { $('seenDlg').hidden = true; };
 async function sendMsgs(msgs) {
   const box = $('send'); box.innerHTML = '';
-  const smsBtn = m => {
-    const a = document.createElement('a');
-    a.href = `sms:${m.to.replace(/[^\d+]/g, '')}?&body=${encodeURIComponent(m.body)}`;
-    a.textContent = `📱 Send to ${m.name} (${m.to})`;
-    a.onclick = () => setTimeout(() => { a.classList.add('done'); a.textContent = '✅ ' + a.textContent.slice(2); }, 300);
-    return a;
-  };
   const line = (cls, t) => { const d = document.createElement('div'); d.className = 'st ' + cls; d.style.margin = '6px 0'; d.textContent = t; box.appendChild(d); };
-  if (sendMethod === 'email') {
-    if (!GMAIL_SENDER_URL) { line('bad', '📧 Email sender not set up yet'); return; }
-    const ready = [], skipped = [];
-    msgs.forEach(m => {
-      const t = Sms.emailTarget(m);
-      if (t.ok) ready.push({ m, to: t.to, body: Sms.stripEmoji(m.body) });
-      else skipped.push({ m, why: t.why });
+  if (!GMAIL_SENDER_URL) { line('bad', '📧 Email sender not set up yet'); return; }
+  const ready = [], skipped = [];
+  msgs.forEach(m => {
+    const t = Sms.emailTarget(m);
+    if (t.ok) ready.push({ m, to: t.to, body: Sms.stripEmoji(m.body) });
+    else skipped.push({ m, why: t.why });
+  });
+  skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
+  if (!ready.length) return;
+  line('', '⏳ Sending…');
+  let res = null;
+  try {
+    const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
+    res = await r.json();
+  } catch {}
+  // Keep skip lines; replace the "Sending…" row with results.
+  const wait = box.querySelector('.st:not(.ok):not(.bad)'); if (wait) wait.remove();
+  if (Array.isArray(res) && res.length === ready.length) {
+    ready.forEach((x, i) => {
+      if (res[i].ok) line('ok', `✅ sent to ${x.m.name}`);
+      else line('bad', `⚠️ ${x.m.name}: ${String(res[i].error || 'failed').slice(0, 80)}`);
     });
-    skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
-    if (!ready.length) return;
-    line('', '⏳ Sending…');
-    let res = null;
-    try {
-      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, body: x.body })) }) });
-      res = await r.json();
-    } catch {}
-    // Keep skip lines; replace the "Sending…" row with results.
-    const wait = box.querySelector('.st:not(.ok):not(.bad)'); if (wait) wait.remove();
-    if (Array.isArray(res) && res.length === ready.length) {
-      ready.forEach((x, i) => {
-        if (res[i].ok) line('ok', `✅ sent to ${x.m.name}`);
-        else line('bad', `⚠️ ${x.m.name}: ${String(res[i].error || 'failed').slice(0, 80)}`);
-      });
-    } else line('bad', '⚠️ Could not reach the email sender.');
-    return;
-  }
-  let failed = msgs;
-  if (SMS_ENDPOINT) {
-    line('', '⏳ Sending…');
-    let res = null;
-    try {
-      const r = await fetch(SMS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: msgs.map(m => ({ to: m.to, body: m.body })) }) });
-      res = await r.json();
-    } catch {}
-    box.innerHTML = '';
-    if (Array.isArray(res) && res.length === msgs.length) {
-      failed = [];
-      msgs.forEach((m, i) => {
-        if (res[i].ok) line('ok', `✅ sent to ${m.name}`);
-        else { line('bad', `⚠️ ${m.name}: ${String(res[i].error || 'failed').replace(/^\d+: /, '').slice(0, 80)}`); failed.push(m); }
-      });
-    } else line('bad', '⚠️ Could not reach the texting service.');
-  }
-  if (failed.length) {
-    const n = document.createElement('div'); n.className = 'note';
-    n.textContent = '📱 Backup: tap to send from your phone. 🤫 Don\'t read the text! (It is visible in your Messages app.)';
-    box.appendChild(n);
-    failed.forEach(m => box.appendChild(smsBtn(m)));
-  }
+  } else line('bad', '⚠️ Could not reach the email sender.');
 }
 
 // Always start on the organizer screen, even with a #group link.
