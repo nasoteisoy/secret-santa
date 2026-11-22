@@ -7,11 +7,10 @@ const SMS_ENDPOINT = '';
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
 let S = { organizer: '', people: [], ex: {}, template: DEF_TPL };
-let demo = false, gid = location.hash.slice(1) || '', saveT;
+let gid = location.hash.slice(1) || '', saveT;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 function save() {
-  if (demo) { $('save').textContent = '▶️ Demo (not saved)'; return; }
   if (!gid && !S.organizer && !S.people.length) return;
   if (!gid) { gid = uid() + uid(); history.replaceState(null, '', '#' + gid); }
   const data = { ...S, updated: Date.now() };
@@ -63,6 +62,7 @@ function matrix() {
 }
 function update(redraw = true) {
   if (redraw) matrix();
+  $('demoBtn').hidden = S.people.length < 2; endDemo();
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
@@ -115,7 +115,6 @@ $('go').onclick = async () => {
   // Pairings live only in these message bodies. Never shown, logged, or saved.
   const msgs = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
   const box = $('send'); box.innerHTML = '';
-  if (demo) { box.innerHTML = '<div class="st ok">▶️ Demo: texts would go out now. 🤫 You never see who got who.</div>'; return; }
   if (SMS_ENDPOINT) {
     let ok = 0;
     for (const m of msgs) try { if ((await fetch(SMS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: m.to, body: m.body }) })).ok) ok++; } catch {}
@@ -132,26 +131,20 @@ $('go').onclick = async () => {
   });
 };
 
-// ===== DEMO =====
-let step = 0, saved;
-const D = [
-  ['👋 Demo! This is a family of 4.', () => {
-    const ids = ['a', 'b', 'c', 'd'];
-    S = { organizer: 'Chumi', template: DEF_TPL, ex: {}, people: ['Ana', 'Ben', 'Cal', 'Dee'].map((n, i) => ({ id: ids[i], name: n, phone: '555-010' + i })) };
-  }],
-  ['🚫 Ana and Ben are a couple, so they can\'t give to each other.', () => { S.ex = { a: ['b'], b: ['a'] }; }],
-  ['❌ Oops: Ana also can\'t give to Cal or Dee. Now Ana has nobody! See the red box.', () => { S.ex = { a: ['b', 'c', 'd'], b: ['a'] }; }],
-  ['❌ Harder one: Ana and Ben can only give to Cal. 2 people, 1 gift spot.', () => { S.ex = { a: ['b', 'd'], b: ['a', 'd'] }; }],
-  ['✅ Fixed: Ben can give to Dee again. Green = it works!', () => { S.ex = { a: ['b', 'd'], b: ['a'] }; }],
-  ['🎁 Edit the text, then tap Generate. You never see who got who. Try it!', () => {}],
-];
-function showStep() { D[step][1](); $('demoTxt').textContent = `${step + 1}/${D.length} ${D[step][0]}`; $('demoNext').style.display = step < D.length - 1 ? '' : 'none'; render(); }
-let wasStart = false;
-$('demoBtn2').onclick = () => { wasStart = true; showApp(true); startDemo(); };
-$('demoBtn').onclick = () => { wasStart = false; startDemo(); };
-function startDemo() { if (!demo) saved = JSON.stringify(S); demo = true; step = 0; $('demo').style.display = 'block'; $('send').innerHTML = ''; showStep(); }
-$('demoNext').onclick = () => { step++; showStep(); };
-function endDemo() { if (!demo) return; demo = false; $('demo').style.display = 'none'; S = JSON.parse(saved); $('send').innerHTML = ''; $('save').textContent = ''; if (wasStart) { wasStart = false; showApp(false); } else render(); }
+// ===== DEMO (dry run on their real data; nothing saved or texted) =====
+$('demoBtn').onclick = () => {
+  const P = S.people, c = Santa.check(P, S.ex), out = $('demoOut');
+  $('demoBox').hidden = false;
+  if (!c.ok) { out.innerHTML = `<div class="st bad">❌ ${esc(c.why)}</div>`; }
+  else {
+    const d = Santa.draw(P, S.ex);
+    out.innerHTML = P.map((g, i) => `<div class="prev"><b>📱 ${esc(g.name || '?')} ${esc(g.phone || '')}</b> → 🎁 ${esc(P[d[i]].name || '?')}<br>${esc(Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }))}</div>`).join('') +
+      '<button class="s" id="demoAgain" style="margin-top:8px">🔁 Another sample</button>';
+    $('demoAgain').onclick = $('demoBtn').onclick;
+  }
+  $('demoBox').scrollIntoView({ behavior: 'smooth' });
+};
+function endDemo() { $('demoBox').hidden = true; $('demoOut').innerHTML = ''; }
 $('demoEnd').onclick = endDemo;
 
 if (gid) { showApp(true); load(); } else showStart();
