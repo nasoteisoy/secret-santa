@@ -71,7 +71,7 @@ function update(redraw = true, delay = 400) {
   if (redraw) matrix();
   const hasOrg = !!S.organizer.trim();
   $('gated').hidden = !hasOrg; $('orgNeed').hidden = hasOrg;
-  $('demoBtn').hidden = !hasOrg || S.people.length < 2; endDemo();
+  discardDraw();
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
@@ -102,7 +102,7 @@ const key = s => String(s || '').trim().toLowerCase();
 async function nameTaken(name, selfId) { return (await allAccounts()).some(a => a.id !== selfId && key(a.name) === key(name)); }
 
 async function showStart() {
-  endDemo(); await flush(); cancelEdit();
+  discardDraw(); await flush(); cancelEdit();
   gid = ''; history.replaceState(null, '', location.pathname);
   S = blank(); $('send').innerHTML = ''; status(''); $('startMsg').hidden = true;
   showApp(false); $('newOrg').value = ''; $('newOrgGo').disabled = true;
@@ -147,12 +147,29 @@ $('acctEdit').onclick = async () => {
 $('acct').onkeydown = e => { if (e.key === 'Enter' && editing) $('acctEdit').onclick(); if (e.key === 'Escape') cancelEdit(); };
 $('newBtn').onclick = showStart;
 
-$('go').onclick = async () => {
-  if (!confirm('🎅 Do you really want to text everyone?')) return;
+// ===== DRAW (page memory only: never saved, never logged) =====
+let DRAW = null, seen = false;
+function makeDraw() {
   const P = S.people, d = Santa.draw(P, S.ex);
-  if (!d) return alert('❌ No match possible.');
-  // Pairings live only in these message bodies. Never shown, logged, or saved.
-  const msgs = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
+  if (!d) { alert('❌ No match possible.'); return false; }
+  DRAW = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), rname: P[d[i]].name, body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
+  seen = false; $('results').innerHTML = ''; $('send').innerHTML = ''; $('drawBox').hidden = false;
+  return true;
+}
+function discardDraw() { DRAW = null; seen = false; if ($('drawBox')) { $('drawBox').hidden = true; $('results').innerHTML = ''; } }
+$('go').onclick = () => makeDraw();
+$('again').onclick = () => makeDraw();
+$('see').onclick = () => {
+  if (!DRAW) return;
+  seen = true;
+  $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}<br>${esc(m.body)}</div>`).join('');
+};
+function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?')) sendMsgs(DRAW); }
+$('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
+$('dlgNew').onclick = () => { $('seenDlg').hidden = true; if (makeDraw()) confirmSend(); };
+$('dlgThis').onclick = () => { $('seenDlg').hidden = true; confirmSend(); };
+$('dlgCancel').onclick = () => { $('seenDlg').hidden = true; };
+async function sendMsgs(msgs) {
   const box = $('send'); box.innerHTML = '';
   const smsBtn = m => {
     const a = document.createElement('a');
@@ -185,23 +202,7 @@ $('go').onclick = async () => {
     box.appendChild(n);
     failed.forEach(m => box.appendChild(smsBtn(m)));
   }
-};
-
-// ===== DEMO (dry run on their real data; nothing saved or texted) =====
-$('demoBtn').onclick = () => {
-  const P = S.people, c = Santa.check(P, S.ex), out = $('demoOut');
-  $('demoBox').hidden = false;
-  if (!c.ok) { out.innerHTML = `<div class="st bad">❌ ${esc(c.why)}</div>`; }
-  else {
-    const d = Santa.draw(P, S.ex);
-    out.innerHTML = P.map((g, i) => `<div class="prev"><b>📱 ${esc(g.name || '?')} ${esc(g.phone || '')}</b> → 🎁 ${esc(P[d[i]].name || '?')}<br>${esc(Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }))}</div>`).join('') +
-      '<button class="s" id="demoAgain" style="margin-top:8px">🔁 Another sample</button>';
-    $('demoAgain').onclick = $('demoBtn').onclick;
-  }
-  $('demoBox').scrollIntoView({ behavior: 'smooth' });
-};
-function endDemo() { $('demoBox').hidden = true; $('demoOut').innerHTML = ''; }
-$('demoEnd').onclick = endDemo;
+}
 
 // Always start on the organizer screen, even with a #group link.
 showStart();

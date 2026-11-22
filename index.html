@@ -25,21 +25,22 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 .top{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 #orgList button{font-size:20px;padding:14px}
 [hidden]{display:none!important}
+.lbl{font-size:13px;color:#666;text-align:left;margin-bottom:2px}
 #save{text-align:center;font-size:13px;opacity:.8}
 </style></head><body><main>
 <h1>🎅 Secret Santa 🎁</h1>
 <div id="start" class="card" style="text-align:center">
 <h2 style="font-size:28px">👤 Account</h2>
+<div class="lbl">Account name</div>
 <div class="row"><input id="newOrg" placeholder="New account name" style="font-size:22px"><button class="g" id="newOrgGo" style="font-size:24px">➡️</button></div>
 <div id="startMsg" class="st bad" hidden></div>
 <div id="orgList" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
 </div>
 <div id="app" hidden>
-<div class="top"><button class="s" id="demoBtn" hidden>▶️ Demo</button><button class="s" id="newBtn">🔄 Switch account</button></div>
+<div class="top"><button class="s" id="newBtn">🔄 Switch account</button></div>
 <div id="save"></div>
 
-<div class="card" id="demoBox" hidden style="border:4px dashed #ffb300"><div class="row"><h2 style="flex:1;margin:0">🧪 Demo — nothing sent, real draw happens later</h2><button class="s" id="demoEnd">✖</button></div><div id="demoOut"></div></div>
-<div class="card"><div class="row"><b style="font-size:20px">👤</b><input id="acct" readonly style="font-size:20px;font-weight:700;border-color:transparent"><button class="s" id="acctEdit">✏️</button></div>
+<div class="card"><div class="lbl">Account name</div><div class="row"><b style="font-size:20px">👤</b><input id="acct" readonly style="font-size:20px;font-weight:700;border-color:transparent"><button class="s" id="acctEdit">✏️</button></div>
 <div id="acctMsg" class="st bad" hidden></div></div>
 <div class="card"><h2>🎅 Organizer name</h2><input id="org" placeholder="Organizer name (required)" style="font-size:20px">
 <div class="note" id="orgNeed">⬆️ Type the organizer name to start.</div></div>
@@ -63,11 +64,19 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 <div class="card"><h2>🎲 Go</h2>
 <button class="big" id="go" disabled>🎁 Generate secret list</button>
 <div class="note" id="goWhy"></div>
+<div id="drawBox" hidden style="margin-top:10px"><div class="st ok">✅ List generated</div>
+<button class="big s" id="again">🔁 Generate again</button>
+<button class="big s" id="see">👀 See results</button>
+<button class="big g" id="sendBtn">📱 Send texts</button>
+<div id="results"></div></div>
 <div class="note">Twilio trial: can only text numbers verified in Twilio.</div>
 <div class="send" id="send"></div></div>
 </div>
 </div>
 </main>
-<script src="santa.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<div id="seenDlg" hidden style="position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:9">
+<div class="card" style="max-width:420px;text-align:center"><h2>👀 You already saw the results. Generate a new one first so it stays secret?</h2>
+<button class="big g" id="dlgNew">🔁 New one &amp; send</button><button class="big s" id="dlgThis">📱 Send this one</button><button class="big s" id="dlgCancel">Cancel</button></div></div>
+<script src="santa.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body></html>
