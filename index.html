@@ -30,10 +30,12 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 [hidden]{display:none!important}
 .lbl{font-size:13px;color:#666;text-align:left;margin-bottom:2px}
 #save{text-align:center;font-size:13px;opacity:.8}
+.steps{margin:10px 0;font-size:15px;font-weight:600;color:#333;line-height:1.7}
 </style></head><body><main>
 <h1>🎅 Secret Santa 🎁</h1>
 <div id="start" class="card" style="text-align:center">
 <h2 style="font-size:28px">👤 Account</h2>
+<div class="steps">1️⃣ Make an account<br>2️⃣ Add people + phone or email<br>3️⃣ Generate and send</div>
 <div class="lbl">Account name</div>
 <div class="row"><input id="newOrg" placeholder="New account name" style="font-size:22px"><button class="g" id="newOrgGo" style="font-size:24px">➡️</button></div>
 <div id="startMsg" class="st bad" hidden></div>
@@ -76,6 +78,7 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 <div class="note">📧 No emoji (carriers strip them).</div>
 <button class="big g" id="sendBtn">📧 Send texts</button>
 <div class="note">Keep this page open until all are sent.</div>
+<div class="note">📬 Tell everyone: check Spam for chummygamesinc@gmail.com</div>
 <div id="results"></div></div>
 <div class="send" id="send"></div></div>
 </div>
@@ -84,7 +87,7 @@ td input{width:24px;height:24px}td.self{color:#bbb}
 <div id="seenDlg" hidden style="position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:9">
 <div class="card" style="max-width:420px;text-align:center"><h2>👀 You already saw the results. Generate a new one first so it stays secret?</h2>
 <button class="big g" id="dlgNew">🔁 New one &amp; send</button><button class="big s" id="dlgThis">📱 Send this one</button><button class="big s" id="dlgCancel">Cancel</button></div></div>
-<script src="santa.js?v=19"></script>
-<script src="sms.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="santa.js?v=20"></script>
+<script src="sms.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body></html>

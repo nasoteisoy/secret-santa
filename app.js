@@ -5,7 +5,7 @@ const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbwstNSj2eafr2esvsNbLlG-hmGuQOicwcTZuEU-wAravwV5mhXm23KYPT5GNvgXdADb/exec';
 // ==================
 const $ = id => document.getElementById(id);
-const DEF_TPL = 'Hi {giver}, {organizer} set up our family Secret Santa this year. You are giving a gift to {receiver}. Please keep it a secret. Merry Christmas, {organizer}';
+const DEF_TPL = 'Hi {giver}, {organizer} set up our Secret Santa this year. You are giving a gift to {receiver}. Please keep it a secret. Merry Christmas, {organizer}';
 const DEF_SUBJ = "{organizer}'s Secret Santa for {giver}";
 const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL, subject: DEF_SUBJ });
 let S = blank();
@@ -81,7 +81,7 @@ function update(redraw = true, delay = 400) {
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
-  const sample = { organizer: S.organizer || 'You', giver: 'Ana', receiver: 'Bob' };
+  const sample = { organizer: S.organizer || 'Alex', giver: 'Ana', receiver: 'Bob' };
   const subjPrev = Santa.fill(S.subject || '', sample);
   $('prev').textContent = (subjPrev ? '📨 ' + subjPrev + '\n' : '') + Santa.fill(S.template, sample);
   const noContact = S.people.filter(p => !(p.phone || '').trim());

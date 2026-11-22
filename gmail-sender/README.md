@@ -1,12 +1,10 @@
 # Email-to-text sender (Google Apps Script)
 
-Sends Secret Santa texts through carrier email-to-SMS gateways, from **jmcamou@gmail.com** (never johnpcamou@gmail.com).
-
-The live app’s `GMAIL_SENDER_URL` in `app.js` is empty until this is deployed. Until then, choosing 📧 Email shows “email sender not set up yet.”
+Sends Secret Santa texts through carrier email-to-SMS gateways, from **chummygamesinc@gmail.com**.
 
 ## Deploy
 
-1. Sign in to [script.google.com](https://script.google.com) as **jmcamou@gmail.com**.
+1. Sign in to [script.google.com](https://script.google.com) as **chummygamesinc@gmail.com**.
 2. New project. Paste `Code.gs` into the editor. Save.
 3. **Deploy → New deployment → Web app**.
    - Execute as: **Me**
@@ -21,7 +19,7 @@ The app POSTs JSON as `Content-Type: text/plain` (avoids a CORS preflight). Apps
 `POST` body:
 
 ```json
-{ "groupId": "abc", "messages": [{ "to": "6023497622@tmomail.net", "subject": "optional", "body": "plain text" }] }
+{ "groupId": "abc", "messages": [{ "to": "5551234567@tmomail.net", "subject": "optional", "body": "plain text" }] }
 ```
 
 - `groupId` must be a non-empty string.
