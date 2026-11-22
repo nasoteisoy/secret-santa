@@ -50,13 +50,14 @@ function doPost(e) {
       m = msgs[i];
       to = String((m && m.to) || '');
       body = String((m && m.body) || '');
+      var subject = String((m && m.subject) || '').slice(0, 100);
       if (!body) {
         out.push({ to: to, ok: false, error: 'Text empty' });
         continue;
       }
       try {
-        // Plain text only: empty subject, no htmlBody (carriers mangle HTML).
-        GmailApp.sendEmail(to, '', body);
+        // Plain text only: no htmlBody (carriers mangle HTML).
+        GmailApp.sendEmail(to, subject, body);
         out.push({ to: to, ok: true });
       } catch (err) {
         out.push({ to: to, ok: false, error: String((err && err.message) || 'Send failed').slice(0, 140) });

@@ -32,4 +32,6 @@ a.deepStrictEqual(Sms.emailTarget({ phone: '6023497622', carrier: 'tmobile' }), 
 a.deepStrictEqual(Sms.emailTarget({ phone: '123', carrier: 'verizon' }), { ok: false, why: 'bad phone number' });
 a.ok(!Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bob 🎁').includes('🎅'));
 a.strictEqual(Sms.stripEmoji('Hi Ana! 🎅 You set up Secret Santa. You are giving to Bob 🎁'), 'Hi Ana! You set up Secret Santa. You are giving to Bob');
+a.strictEqual(S.fill('From {organizer} to {giver}', { organizer: 'You', giver: 'Ana', receiver: 'Bob' }), 'From You to Ana');
+a.strictEqual(Sms.stripEmoji(S.fill('🎅 Secret Santa for {receiver}', { giver: 'Ana', organizer: 'You', receiver: 'Bob' })).slice(0, 100), 'Secret Santa for Bob');
 console.log('tests ok');

@@ -21,7 +21,7 @@ The app POSTs JSON as `Content-Type: text/plain` (avoids a CORS preflight). Apps
 `POST` body:
 
 ```json
-{ "groupId": "abc", "messages": [{ "to": "6023497622@tmomail.net", "body": "plain text" }] }
+{ "groupId": "abc", "messages": [{ "to": "6023497622@tmomail.net", "subject": "optional", "body": "plain text" }] }
 ```
 
 - `groupId` must be a non-empty string.
@@ -30,4 +30,4 @@ The app POSTs JSON as `Content-Type: text/plain` (avoids a CORS preflight). Apps
 
 `GET` is a health check and returns `{ "ok": true, "service": "gmail-sender" }`.
 
-Sends with `GmailApp.sendEmail(to, '', body)` — empty subject, plain text only, no `htmlBody`.
+Sends with `GmailApp.sendEmail(to, String(m.subject||'').slice(0,100), body)` — plain text only, no `htmlBody`.

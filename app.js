@@ -6,7 +6,7 @@ const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbyEn12G45HgkdE
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}! 🎅 {organizer} set up Secret Santa. You are giving to {receiver} 🎁';
-const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL });
+const blank = (acct = '') => ({ accountName: acct, organizer: '', people: [], ex: {}, template: DEF_TPL, subject: '' });
 let S = blank();
 const HASH_ID = location.hash.slice(1); let gid = '', saveT;
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -37,12 +37,12 @@ async function load() {
   let d = null;
   if (FIREBASE_DB_URL) try { d = await (await fetch(`${FIREBASE_DB_URL}/secretSanta/${gid}.json`)).json(); } catch {}
   if (!d) try { d = JSON.parse(localStorage.getItem('ss_' + gid)); } catch {}
-  if (d) S = { accountName: d.accountName || d.organizer || '', organizer: d.organizer || '', people: d.people || [], ex: d.ex || {}, template: d.template || DEF_TPL };
+  if (d) S = { accountName: d.accountName || d.organizer || '', organizer: d.organizer || '', people: d.people || [], ex: d.ex || {}, template: d.template || DEF_TPL, subject: d.subject || '' };
   render(0); status(d ? '💾 Saved ✓' : '');
 }
 
 function render(delay = 0) {
-  $('org').value = S.organizer; $('tpl').value = S.template; $('acct').value = S.accountName;
+  $('org').value = S.organizer; $('tpl').value = S.template; $('subj').value = S.subject || ''; $('acct').value = S.accountName;
   $('people').innerHTML = '';
   S.people.forEach(p => {
     const row = document.createElement('div'); row.className = 'row';
@@ -78,7 +78,9 @@ function update(redraw = true, delay = 400) {
   const c = Santa.check(S.people, S.ex);
   $('status').className = 'st ' + (c.ok ? 'ok' : 'bad');
   $('status').textContent = c.ok ? '✅ Works! Everyone can get a match.' : '❌ ' + c.why;
-  $('prev').textContent = Santa.fill(S.template, { organizer: S.organizer || 'You', giver: 'Ana', receiver: 'Bob' });
+  const sample = { organizer: S.organizer || 'You', giver: 'Ana', receiver: 'Bob' };
+  const subjPrev = Santa.fill(S.subject || '', sample);
+  $('prev').textContent = (subjPrev ? '📨 ' + subjPrev + '\n' : '') + Santa.fill(S.template, sample);
   const noPhone = S.people.filter(p => !(p.phone || '').trim());
   $('go').disabled = !c.ok || !!noPhone.length;
   $('goWhy').textContent = !c.ok ? '❌ Fix the ❌ above first.' : noPhone.length ? `📱 Missing phone: ${noPhone.map(p => p.name || '?').join(', ')}` : '';
@@ -88,7 +90,11 @@ const esc = s => String(s || '').replace(/[&<>"]/g, m => ({ '&': '&amp;', '<': '
 
 $('org').oninput = e => { S.organizer = e.target.value; update(false); };
 $('tpl').oninput = e => { S.template = e.target.value; update(false); };
-document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $('tpl'), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); S.template = t.value; update(false, 0); t.focus(); });
+$('subj').oninput = e => { S.subject = e.target.value; update(false); };
+let textTarget = 'tpl';
+$('tpl').onfocus = () => { textTarget = 'tpl'; };
+$('subj').onfocus = () => { textTarget = 'subj'; };
+document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $(textTarget), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); if (textTarget === 'tpl') S.template = t.value; else S.subject = t.value; update(false, 0); t.focus(); });
 $('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '', carrier: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
 // ===== START SCREEN =====
 function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
@@ -154,7 +160,7 @@ let DRAW = null, seen = false;
 function makeDraw() {
   const P = S.people, d = Santa.draw(P, S.ex);
   if (!d) { alert('❌ No match possible.'); return false; }
-  DRAW = P.map((g, i) => ({ name: g.name, to: g.phone.trim(), carrier: g.carrier || '', rname: P[d[i]].name, body: Santa.fill(S.template, { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }) }));
+  DRAW = P.map((g, i) => { const v = { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }; return { name: g.name, to: g.phone.trim(), carrier: g.carrier || '', rname: P[d[i]].name, subject: Santa.fill(S.subject || '', v), body: Santa.fill(S.template, v) }; });
   seen = false; $('results').innerHTML = ''; $('send').innerHTML = ''; $('drawBox').hidden = false;
   return true;
 }
@@ -164,7 +170,7 @@ $('again').onclick = () => makeDraw();
 $('see').onclick = () => {
   if (!DRAW) return;
   seen = true;
-  $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}<br>${esc(m.body)}</div>`).join('');
+  $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}${m.subject ? `<br>📨 ${esc(m.subject)}` : ''}<br>${esc(m.body)}</div>`).join('');
 };
 function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?')) sendMsgs(DRAW); }
 $('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
@@ -178,7 +184,7 @@ async function sendMsgs(msgs) {
   const ready = [], skipped = [];
   msgs.forEach(m => {
     const t = Sms.emailTarget(m);
-    if (t.ok) ready.push({ m, to: t.to, body: Sms.stripEmoji(m.body) });
+    if (t.ok) ready.push({ m, to: t.to, subject: Sms.stripEmoji(m.subject).slice(0, 100), body: Sms.stripEmoji(m.body) });
     else skipped.push({ m, why: t.why });
   });
   skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
@@ -190,7 +196,7 @@ async function sendMsgs(msgs) {
     if (i > 0) await new Promise(r => setTimeout(r, 6000));
     let res = null;
     try {
-      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: [{ to: x.to, body: x.body }] }) });
+      const r = await fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: [{ to: x.to, subject: x.subject, body: x.body }] }) });
       res = await r.json();
     } catch {}
     const ok = Array.isArray(res) && res[0] && res[0].ok;
