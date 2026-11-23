@@ -25,8 +25,12 @@ a.strictEqual(Sms.gatewayAddress('5551234567', 'cricket'), '5551234567@sms.crick
 a.strictEqual(Sms.gatewayAddress('5551234567', 'uscc'), '5551234567@email.uscc.net');
 a.strictEqual(Sms.gatewayAddress('5551234567', 'att'), null);
 a.strictEqual(Sms.gatewayAddress('5551234567', ''), null);
-a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567', carrier: '' }), { ok: false, why: 'pick a carrier' });
-a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567' }), { ok: false, why: 'pick a carrier' });
+const allTo = ['5551234567@tmomail.net','5551234567@vtext.com','5551234567@mymetropcs.com','5551234567@msg.fi.google.com','5551234567@sms.cricketwireless.net','5551234567@email.uscc.net'];
+a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567', carrier: 'all' }), { ok: true, to: allTo });
+a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567', carrier: '' }), { ok: true, to: allTo });
+a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567' }), { ok: true, to: allTo });
+a.strictEqual(new Set(allTo).size, 6);
+a.ok(allTo.every(x => !/att/i.test(x)));
 a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567', carrier: 'att' }), { ok: false, why: 'pick a carrier' });
 a.deepStrictEqual(Sms.emailTarget({ phone: '5551234567', carrier: 'tmobile' }), { ok: true, to: '5551234567@tmomail.net' });
 a.deepStrictEqual(Sms.emailTarget({ phone: '123', carrier: 'verizon' }), { ok: false, why: 'bad phone number' });

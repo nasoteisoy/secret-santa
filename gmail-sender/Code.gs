@@ -39,8 +39,8 @@ function doPost(e) {
     if (!groupId || typeof groupId !== 'string' || !String(groupId).trim()) {
       return json_({ error: 'groupId required' });
     }
-    if (!Array.isArray(msgs) || !msgs.length || msgs.length > 50) {
-      return json_({ error: '1-50 messages required' });
+    if (!Array.isArray(msgs) || !msgs.length || msgs.length > 150) {
+      return json_({ error: '1-150 messages required' });
     }
     var n = msgs.length, i, m, to, body, out = [];
     for (i = 0; i < n; i++) {
@@ -48,10 +48,14 @@ function doPost(e) {
         return json_({ error: 'Invalid destination' });
       }
     }
-    // Gap between sends so filters don't drop a burst. Caps so n messages fit in ~5 minutes (6-minute Apps Script limit).
+    // Full gap between people; ~1s between gateway copies of the same person. Caps so a batch fits in ~5.5 minutes.
     var gap = Math.min(20000, Math.floor(300000 / n));
+    function personKey_(msg) {
+      if (msg && msg.person) return String(msg.person);
+      return String((msg && msg.body) || '');
+    }
     for (i = 0; i < n; i++) {
-      if (i > 0) Utilities.sleep(gap);
+      if (i > 0) Utilities.sleep(personKey_(msgs[i]) === personKey_(msgs[i - 1]) ? 1000 : gap);
       m = msgs[i];
       to = String((m && m.to) || '');
       body = String((m && m.body) || '');

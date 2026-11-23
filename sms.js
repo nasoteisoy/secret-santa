@@ -1,6 +1,7 @@
 // Email-to-text helpers (browser + node). No pairings are ever logged.
 (function (root) {
   const CARRIERS = [
+    { id: 'all', label: 'All carriers (try every one)', domain: null },
     { id: 'tmobile', label: 'T-Mobile', domain: 'tmomail.net' },
     { id: 'verizon', label: 'Verizon', domain: 'vtext.com' },
     { id: 'mint', label: 'Mint', domain: 'tmomail.net' },
@@ -10,7 +11,7 @@
     { id: 'uscc', label: 'US Cellular', domain: 'email.uscc.net' },
     { id: 'att', label: 'AT&T — no email texts (gateway shut down 2025)', domain: null }
   ];
-  const GATEWAYS = CARRIERS.map(c => c.domain).filter(Boolean);
+  const GATEWAYS = [...new Set(CARRIERS.map(c => c.domain).filter(Boolean))];
 
   function digits10(phone) {
     const d = String(phone || '').replace(/\D/g, '');
@@ -27,7 +28,7 @@
   function isEmail(s) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
   }
-  // {ok:true, to} or {ok:false, why} — skip when not sendable
+  // {ok:true, to} (string or list of gateway addresses) or {ok:false, why}
   function emailTarget(person) {
     const raw = String((person && (person.phone || person.to)) || '').trim();
     if (raw.includes('@')) {
@@ -35,7 +36,12 @@
       return { ok: true, to: raw };
     }
     const carrier = (person && person.carrier) || '';
-    if (!carrier || carrier === 'att') return { ok: false, why: 'pick a carrier' };
+    if (carrier === 'att') return { ok: false, why: 'pick a carrier' };
+    const n = digits10(raw);
+    if (!n) return { ok: false, why: 'bad phone number' };
+    if (!carrier || carrier === 'all') {
+      return { ok: true, to: GATEWAYS.map(d => n + '@' + d) };
+    }
     const to = gatewayAddress(raw, carrier);
     if (!to) return { ok: false, why: 'bad phone number' };
     return { ok: true, to };

@@ -2,7 +2,7 @@
 // Firebase Realtime Database (project chummy-games). Set to '' to use only localStorage.
 const FIREBASE_DB_URL = 'https://chummy-games-default-rtdb.firebaseio.com';
 // Google Apps Script web app that sends email-to-text. Empty = not set up yet.
-const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbwstNSj2eafr2esvsNbLlG-hmGuQOicwcTZuEU-wAravwV5mhXm23KYPT5GNvgXdADb/exec';
+const GMAIL_SENDER_URL = 'https://script.google.com/macros/s/AKfycbyEn12G45HgkdESTA6fmw_-7RkczRXnsX-Pe2UWMMA93_rvk52wfEPoy5pDzBVhWOK0BQ/exec';
 // ==================
 const $ = id => document.getElementById(id);
 const DEF_TPL = 'Hi {giver}, {organizer} set up our Secret Santa this year. You are giving a gift to {receiver}. Please keep it a secret. Merry Christmas, {organizer}';
@@ -50,7 +50,7 @@ function render(delay = 0) {
     const opts = Sms.CARRIERS.map(c => `<option value="${esc(c.id)}">${esc(c.label)}</option>`).join('');
     row.innerHTML = `<input placeholder="Name" value="${esc(p.name)}"><input type="text" placeholder="Phone or email" value="${esc(p.phone)}"><select aria-label="Carrier"><option value="">📡 Carrier</option>${opts}</select><button class="s">🗑️</button>`;
     const [n, ph, car, del] = row.children;
-    car.value = p.carrier || '';
+    car.value = p.carrier || 'all';
     const syncCar = () => { car.hidden = (ph.value || '').includes('@'); };
     syncCar();
     n.oninput = () => { p.name = n.value; update(); };
@@ -98,7 +98,7 @@ let textTarget = 'tpl';
 $('tpl').onfocus = () => { textTarget = 'tpl'; };
 $('subj').onfocus = () => { textTarget = 'subj'; };
 document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const t = $(textTarget), i = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, i) + b.dataset.t + t.value.slice(i); if (textTarget === 'tpl') S.template = t.value; else S.subject = t.value; update(false, 0); t.focus(); });
-$('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '', carrier: '' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
+$('add').onclick = () => { S.people.push({ id: uid(), name: '', phone: '', carrier: 'all' }); render(); const ins = $('people').querySelectorAll('.row'); ins[ins.length - 1].children[0].focus(); };
 // ===== START SCREEN =====
 function showApp(on) { $('start').hidden = on; $('app').hidden = !on; }
 // All accounts: {id: record}. Firebase is the source of truth; localStorage only if no Firebase.
@@ -163,7 +163,7 @@ let DRAW = null, seen = false;
 function makeDraw() {
   const P = S.people, d = Santa.draw(P, S.ex);
   if (!d) { alert('❌ No match possible.'); return false; }
-  DRAW = P.map((g, i) => { const v = { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }; return { name: g.name, to: g.phone.trim(), carrier: g.carrier || '', rname: P[d[i]].name, subject: Santa.fill(S.subject || '', v), body: Santa.fill(S.template, v) }; });
+  DRAW = P.map((g, i) => { const v = { organizer: S.organizer, giver: g.name, receiver: P[d[i]].name }; return { id: g.id, name: g.name, to: g.phone.trim(), carrier: g.carrier || 'all', rname: P[d[i]].name, subject: Santa.fill(S.subject || '', v), body: Santa.fill(S.template, v) }; });
   seen = false; $('results').innerHTML = ''; $('send').innerHTML = ''; $('drawBox').hidden = false;
   return true;
 }
@@ -175,7 +175,7 @@ $('see').onclick = () => {
   seen = true;
   $('results').innerHTML = DRAW.map(m => `<div class="prev"><b>📱 ${esc(m.name)}</b> → 🎁 ${esc(m.rname)}${m.subject ? `<br>📨 ${esc(m.subject)}` : ''}<br>${esc(m.body)}</div>`).join('');
 };
-function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?\n📧 Sent from chummygamesinc@gmail.com')) sendMsgs(DRAW); }
+function confirmSend() { if (DRAW && confirm('Are you sure you want to text everyone?\n📧 Sent from jmcamou@gmail.com')) sendMsgs(DRAW); }
 $('sendBtn').onclick = () => { if (!DRAW) return; if (seen) $('seenDlg').hidden = false; else confirmSend(); };
 $('dlgNew').onclick = () => { $('seenDlg').hidden = true; if (makeDraw()) confirmSend(); };
 $('dlgThis').onclick = () => { $('seenDlg').hidden = true; confirmSend(); };
@@ -184,26 +184,39 @@ async function sendMsgs(msgs) {
   const box = $('send'); box.innerHTML = '';
   const line = (cls, t) => { const d = document.createElement('div'); d.className = 'st ' + cls; d.style.margin = '6px 0'; d.textContent = t; box.appendChild(d); };
   if (!GMAIL_SENDER_URL) { line('bad', '📧 Email sender not set up yet'); return; }
-  const ready = [], skipped = [];
+  const ready = [], skipped = [], order = [];
   msgs.forEach(m => {
     const t = Sms.emailTarget(m);
-    if (t.ok) ready.push({ m, to: t.to, subject: Sms.stripEmoji(m.subject).slice(0, 100), body: Sms.stripEmoji(m.body) });
-    else skipped.push({ m, why: t.why });
+    if (!t.ok) { skipped.push({ m, why: t.why }); return; }
+    const person = m.id || m.name;
+    const tos = [].concat(t.to);
+    if (!order.includes(person)) order.push(person);
+    tos.forEach(to => ready.push({ m, to, person, subject: Sms.stripEmoji(m.subject).slice(0, 100), body: Sms.stripEmoji(m.body) }));
   });
   skipped.forEach(x => line('bad', `⚠️ ${x.m.name}: ${x.why}`));
   if (!ready.length) return;
-  const req = fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', keepalive: false, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, subject: x.subject, body: x.body })) }) });
-  line('ok', '✅ Sending started. You can close this page. Emails go out over the next few minutes from chummygamesinc@gmail.com.');
-  const rows = ready.map(x => {
-    const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${x.m.name}…`; box.appendChild(row); return row;
+  const req = fetch(GMAIL_SENDER_URL, { method: 'POST', redirect: 'follow', keepalive: false, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ groupId: gid, messages: ready.map(x => ({ to: x.to, subject: x.subject, body: x.body, person: x.person })) }) });
+  line('ok', '✅ Sending started. You can close this page. Emails go out over the next few minutes from jmcamou@gmail.com.');
+  const rows = {};
+  order.forEach(person => {
+    const name = (ready.find(x => x.person === person) || {}).m.name;
+    const row = document.createElement('div'); row.className = 'st'; row.style.margin = '6px 0'; row.textContent = `⏳ ${name}…`; box.appendChild(row);
+    rows[person] = row;
   });
   let res = null;
   try { const r = await req; res = await r.json(); } catch {}
   if (Array.isArray(res) && res.length === ready.length) {
+    const rec = {};
     ready.forEach((x, i) => {
-      const ok = res[i] && res[i].ok;
-      rows[i].className = 'st ' + (ok ? 'ok' : 'bad');
-      rows[i].textContent = ok ? `✅ sent to ${x.m.name}` : `⚠️ ${x.m.name}: ${String((res[i] && res[i].error) || 'failed').slice(0, 80)}`;
+      const r = rec[x.person] || { name: x.m.name, ok: false, error: '' };
+      if (res[i] && res[i].ok) r.ok = true;
+      else if (!r.ok) r.error = String((res[i] && res[i].error) || 'failed').slice(0, 80);
+      rec[x.person] = r;
+    });
+    order.forEach(person => {
+      const r = rec[person], row = rows[person];
+      row.className = 'st ' + (r.ok ? 'ok' : 'bad');
+      row.textContent = r.ok ? `✅ sent to ${r.name}` : `⚠️ ${r.name}: ${r.error}`;
     });
   } else if (res && res.error) {
     line('bad', '⚠️ ' + String(res.error).slice(0, 80));
